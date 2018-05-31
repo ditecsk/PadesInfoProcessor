@@ -49,7 +49,7 @@
     <PreBuildEvent />
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>signtool sign /sha1 dee492a6b2cbfd39631c68eb04b65057e049cfc2 /t http://timestamp.globalsign.com/scripts/timstamp.dll "!(TargetPath)"</PostBuildEvent>
+    <PostBuildEvent />
   </PropertyGroup>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.
