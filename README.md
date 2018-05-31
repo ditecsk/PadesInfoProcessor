@@ -11,4 +11,5 @@ PAdES Info Processor is based on iText and provides following functionality for 
 	-	serial number
 	-	validity
 	-	mandate information (specific in Slovakia according the legislation)
+
 Information about the signatures is provided as a structured XML and processed in other applications.
