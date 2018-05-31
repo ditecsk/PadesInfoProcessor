@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="PAdES Info Processor 1.0" Language="1033" Version="1.0.0.0" Manufacturer="DITEC, a.s." UpgradeCode="43a14dd0-1c0b-44c8-8e75-fa908b19f422">
+    <Package InstallerVersion="405" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate />
+
+    <Feature Id="ProductFeature" Title="PadesInfoProcessor" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="PadesInfoProcessor" >
+        </Directory>
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- TODO: Remove the comments around this Component element and the ComponentRef below in order to add resources to this installer. -->
+      <Component Id="ProductComponent" Guid="571EFB9A-0A08-4EEB-AEAD-4236B3FF798C">
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\PadesInfoProcessor.exe" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.barcodes.dll" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.forms.dll" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.io.dll" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.kernel.dll" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.layout.dll" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.pdfa.dll" />
+        <File Source="$(var.PadesInfoProcessor.TargetDir)\itext.sign.dll" />
+      </Component>
+      <Component Id="InstallRegistryComponent" Guid="A188D90F-DA9D-4A31-AF30-F99137598681">
+        <RegistryKey Root="HKLM" Key="Software\Ditec\PadesInfoProcessor">
+          <RegistryValue Type="string" Name="CodeBase" Value="[INSTALLFOLDER]\PadesInfoProcessor.exe" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
