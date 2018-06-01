@@ -102,7 +102,7 @@ namespace PadesInfoProcessor
 
                     output += "<PdfSignature>";
                     output += "<SignatureName>" + sigName + "</SignatureName>";
-                    output += "<PdfSigningTime>" + signingTime + "</PdfSigningTime>";
+                    output += "<PdfSigningTimeUtc>" + signingTime + "</PdfSigningTimeUtc>";
                     output += "<Reason>" + reason + "</Reason>";
                     output += "<Location>" + location + "</Location>";
                     output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
@@ -137,7 +137,7 @@ namespace PadesInfoProcessor
             output += "<SignerInfo>";
             //output += "<SignatureType>" + (signaturePolicyOid == null ? "PAdES_BES" : "PAdES_EPES") + "</SignatureType>";
             output += "<SigningCertificate>" + Convert.ToBase64String(signingCert.GetEncoded()) + "</SigningCertificate>";
-            output += "<SigningTime>" + signingTime.ToUniversalTime().ToString("o") + "</SigningTime>";
+            output += "<SigningTimeUtc>" + signingTime.ToUniversalTime().ToString("o") + "</SigningTimeUtc>";
 
             output += "<TimeStamps>";
             if (timeStampToken != null)
@@ -146,9 +146,9 @@ namespace PadesInfoProcessor
                 output += "<TimeStampDateTimeUtc>";
                 output += DateTime.SpecifyKind(timeStampToken.TimeStampInfo.GenTime, DateTimeKind.Utc).ToUniversalTime().ToString("o");
                 output += "</TimeStampDateTimeUtc>";
-                output += "<TimeStampSignatureCertificate>";
+                output += "<TimeStampSigningCertificate>";
                 output += Convert.ToBase64String(getTimeStampCert(timeStampToken).GetEncoded());
-                output += "</TimeStampSignatureCertificate>";
+                output += "</TimeStampSigningCertificate>";
                 output += "</TimeStamp>";
             }
             output += "</TimeStamps>";
