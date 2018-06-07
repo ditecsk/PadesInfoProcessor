@@ -35,7 +35,7 @@
       </Component>
       <Component Id="InstallRegistryComponent" Guid="A188D90F-DA9D-4A31-AF30-F99137598681">
         <RegistryKey Root="HKLM" Key="Software\Ditec\PadesInfoProcessor">
-          <RegistryValue Type="string" Name="CodeBase" Value="[INSTALLFOLDER]\PadesInfoProcessor.exe" />
+          <RegistryValue Type="string" Name="CodeBase" Value="[INSTALLFOLDER]PadesInfoProcessor.exe" />
         </RegistryKey>
       </Component>
     </ComponentGroup>

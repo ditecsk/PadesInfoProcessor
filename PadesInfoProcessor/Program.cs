@@ -13,108 +13,133 @@ namespace PadesInfoProcessor
     {
         static void Main(string[] args)
         {
-            MemoryStream ms = null;
-            byte[] password = null;
-            for (int i = 0; i < args.Length; i++)
+            try
             {
-                string[] argArr = args[i].Split(new char[] { ':' }, StringSplitOptions.None);
-
-                string prefix;
-                string value = null;
-
-                prefix = argArr[0];
-                if(argArr.Length > 1)
-                    value = argArr[1];
-
-                switch (prefix.ToUpper())
+                //File.WriteAllText("D:\\pipInput.txt", args[0]);
+                MemoryStream ms = null;
+                byte[] password = null;
+                for (int i = 0; i < args.Length; i++)
                 {
-                    case "-N":
-                    case "/N":
-                        if (ms != null || value == null)
-                            throw new Exception("incorrect input arguments");
+                    int splitIndex = args[i].IndexOf(':');
 
-                        if (File.Exists(value))
-                            ms = new MemoryStream(File.ReadAllBytes(value));
-                        break;
-                    case "-D":
-                    case "/D":
-                        if (ms != null || value == null)
-                            throw new Exception("incorrect input arguments");
+                    string prefix = null;
+                    string value = null;
 
-                        if (File.Exists(value))
+                    if (splitIndex == -1)
+                    {
+                        prefix = args[i];
+                    }
+                    else
+                    {
+                        prefix = args[i].Substring(0, splitIndex);
+                        value = args[i].Substring(splitIndex + 1);
+                    }
+
+                    switch (prefix.ToUpper())
+                    {
+                        case "-N":
+                        case "/N":
+                            if (ms != null)
+                                throw new ArgumentException("incorrect input arguments: filedata already initialized");
+
+                            if (string.IsNullOrWhiteSpace(value) || !File.Exists(value))
+                                throw new ArgumentException("incorrect input arguments: filename not exists");
+
+                            if (File.Exists(value))
+                                ms = new MemoryStream(File.ReadAllBytes(value));
+                            break;
+                        case "-D":
+                        case "/D":
+                            if (ms != null)
+                                throw new ArgumentException("incorrect input arguments: filedata already initialized");
+
+                            if(string.IsNullOrWhiteSpace(value))
+                                throw new ArgumentException("incorrect input arguments: filedata is empty");
+
                             ms = new MemoryStream(Convert.FromBase64String(value));
-                        break;
-                    case "-P":
-                    case "/P":
-                        if (value == null)
-                            throw new Exception("incorrect input arguments");
+                            break;
+                        case "-P":
+                        case "/P":
+                            if (value == null)
+                                throw new ArgumentException("incorrect input arguments: password is empty");
 
-                        password = Encoding.ASCII.GetBytes(value);
-                        break;
-                    case "-HELP":
-                    case "/HELP":
-                    case "-?":
-                    case "/?":
-                        Console.Write("Retrieves PAdES signatures and returns informations structured into XML" + Environment.NewLine +
-                                      "document." + Environment.NewLine +
-                                      Environment.NewLine +
-                            "PadesInfoProcessor [/N:[path][filename]] [/D:[filedata]] [/P:[password]]" + Environment.NewLine +
-                            "  /N:[path][filename]" + Environment.NewLine +
-                            "               Specifies PDF document file path to retrieve informations." + Environment.NewLine +
-                            "  /D:[filedata]" + Environment.NewLine +
-                            "               Specifies PDF document data encoded with Base64." + Environment.NewLine +
-                            "  /P:[password]" + Environment.NewLine +
-                            "               Specifies password if PDF document is encrypted." + Environment.NewLine +
-                            Environment.NewLine);
-                        break;
-                    default:
-                        break;
+                            password = Encoding.ASCII.GetBytes(value);
+                            break;
+                        case "-HELP":
+                        case "/HELP":
+                        case "-?":
+                        case "/?":
+                            Console.Write("Retrieves PAdES signatures and returns informations structured into XML" + Environment.NewLine +
+                                          "document." + Environment.NewLine +
+                                          Environment.NewLine +
+                                "PadesInfoProcessor [/N:[path][filename]] [/D:[filedata]] [/P:[password]]" + Environment.NewLine +
+                                "  /N:[path][filename]" + Environment.NewLine +
+                                "               Specifies PDF document file path to retrieve informations." + Environment.NewLine +
+                                "  /D:[filedata]" + Environment.NewLine +
+                                "               Specifies PDF document data encoded with Base64." + Environment.NewLine +
+                                "  /P:[password]" + Environment.NewLine +
+                                "               Specifies password if PDF document is encrypted." + Environment.NewLine +
+                                Environment.NewLine);
+                            break;
+                        default:
+                            break;
+                    }
                 }
-            }
-            
 
-            string output = string.Empty;
-            if (ms != null)
+
+                string output = string.Empty;
+                if (ms != null)
+                {
+                    iText.Kernel.Pdf.PdfReader pdfReader;
+                    if (password == null)
+                    {
+                        pdfReader = new iText.Kernel.Pdf.PdfReader(ms);
+                    }
+                    else
+                    {
+                        pdfReader = new iText.Kernel.Pdf.PdfReader(ms, (new iText.Kernel.Pdf.ReaderProperties()).SetPassword(password));
+                    }
+
+                    SignatureUtil su = new SignatureUtil(new iText.Kernel.Pdf.PdfDocument(pdfReader));
+                    IList<string> sigNames = su.GetSignatureNames();
+                    output += "<PdfSignatures>";
+                    foreach (string sigName in sigNames)
+                    {
+                        PdfSignature sig = su.GetSignature(sigName);
+
+                        //string cert = sig.GetCert().GetValue();
+                        string coversWholeDoc = su.SignatureCoversWholeDocument(sigName).ToString();
+                        string signingTime = getDate(sig.GetDate());
+                        string contentType = sig.GetSubFilter().ToString().Replace("/", "");
+                        string reason = sig.GetReason();
+                        string location = sig.GetLocation();
+
+                        output += "<PdfSignature>";
+                        output += "<SignatureName>" + sigName + "</SignatureName>";
+                        output += "<PdfSigningTimeUtc>" + signingTime + "</PdfSigningTimeUtc>";
+                        output += "<Reason>" + reason + "</Reason>";
+                        output += "<Location>" + location + "</Location>";
+                        output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
+                        output += "<ContentType>" + contentType + "</ContentType>";
+                        output += processByPdfPKCS7(sig.GetContents().GetValueBytes(), contentType);
+
+                        output += "</PdfSignature>";
+                    }
+                    output += "</PdfSignatures>";
+                }
+                //File.WriteAllText(@"D:\PadesInfoProcessorOutput.xml", output);
+                Console.Write(output);
+
+            }
+            catch(ArgumentException argEx)
             {
-                iText.Kernel.Pdf.PdfReader pdfReader;
-                if(password == null)
-                {
-                    pdfReader = new iText.Kernel.Pdf.PdfReader(ms);
-                }
-                else
-                {
-                    pdfReader = new iText.Kernel.Pdf.PdfReader(ms, (new iText.Kernel.Pdf.ReaderProperties()).SetPassword(password));
-                }
-                
-                SignatureUtil su = new SignatureUtil(new iText.Kernel.Pdf.PdfDocument(pdfReader));
-                IList<string> sigNames = su.GetSignatureNames();
-                output += "<PdfSignatures>";
-                foreach (string sigName in sigNames)
-                {
-                    PdfSignature sig = su.GetSignature(sigName);
-
-                    //string cert = sig.GetCert().GetValue();
-                    string coversWholeDoc = su.SignatureCoversWholeDocument(sigName).ToString();
-                    string signingTime = getDate(sig.GetDate());
-                    string contentType = sig.GetSubFilter().ToString().Replace("/", "");
-                    string reason = sig.GetReason();
-                    string location = sig.GetLocation();
-
-                    output += "<PdfSignature>";
-                    output += "<SignatureName>" + sigName + "</SignatureName>";
-                    output += "<PdfSigningTimeUtc>" + signingTime + "</PdfSigningTimeUtc>";
-                    output += "<Reason>" + reason + "</Reason>";
-                    output += "<Location>" + location + "</Location>";
-                    output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
-                    output += "<ContentType>" + contentType + "</ContentType>";
-                    output += processByPdfPKCS7(sig.GetContents().GetValueBytes(), contentType);
-
-                    output += "</PdfSignature>";
-                }
-                output += "</PdfSignatures>";
+                Console.Error.Write("PadesInfoProcessor 1: " + argEx.Message);
             }
-            File.WriteAllText(@"D:\PadesInfoProcessorOutput.xml", output);
-            Console.Write(output);
+            catch(Exception ex)
+            {
+                //File.WriteAllText("D:\\pipException.txt", ex.ToString());
+                Console.Error.Write("PadesInfoProcessor 1: PDF document unexpected exception: " + ex.ToString());
+            }
         }
 
         private static string getDate(iText.Kernel.Pdf.PdfString dateValue)
@@ -133,9 +158,10 @@ namespace PadesInfoProcessor
             //pkcs7.
             X509Certificate signingCert = pkcs7.GetSigningCertificate();
             DateTime signingTime = pkcs7.GetSignDate();
+            
             TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
             output += "<SignerInfo>";
-            //output += "<SignatureType>" + (signaturePolicyOid == null ? "PAdES_BES" : "PAdES_EPES") + "</SignatureType>";
+            output += "<SignatureType>" + (isEpes(contents) ? "PAdES_EPES" : "PAdES_BES") + "</SignatureType>";
             output += "<SigningCertificate>" + Convert.ToBase64String(signingCert.GetEncoded()) + "</SigningCertificate>";
             output += "<SigningTimeUtc>" + signingTime.ToUniversalTime().ToString("o") + "</SigningTimeUtc>";
 
@@ -155,6 +181,23 @@ namespace PadesInfoProcessor
             output += "</SignerInfo>";
 
             return output;
+        }
+
+        private static bool isEpes(byte[] contents)
+        {
+            Org.BouncyCastle.Cms.CmsSignedData signedData = new Org.BouncyCastle.Cms.CmsSignedData(
+                Org.BouncyCastle.Asn1.Cms.ContentInfo.GetInstance((
+                new Org.BouncyCastle.Asn1.Asn1InputStream(contents)).ReadObject()));
+
+            Org.BouncyCastle.Cms.SignerInformationStore sigInfStore = signedData.GetSignerInfos();
+
+            System.Collections.IEnumerator signers = sigInfStore.GetSigners().GetEnumerator();
+            signers.Reset();
+            signers.MoveNext();
+            Org.BouncyCastle.Cms.SignerInformation signerInfo = (Org.BouncyCastle.Cms.SignerInformation)signers.Current;
+
+            return (signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID] != null
+                    && signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID].AttrValues.Count > 0);
         }
 
         //private static string processSignedData(byte[] cadesData)
