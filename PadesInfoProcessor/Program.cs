@@ -158,13 +158,18 @@ namespace PadesInfoProcessor
             //pkcs7.
             X509Certificate signingCert = pkcs7.GetSigningCertificate();
             DateTime signingTime = pkcs7.GetSignDate();
+
+            string digestAlgOid; byte[] messageDigest; bool isEpes;
+            getAdditionalInfos(contents, out digestAlgOid, out messageDigest, out isEpes);
             
-            TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
             output += "<SignerInfo>";
-            output += "<SignatureType>" + (isEpes(contents) ? "PAdES_EPES" : "PAdES_BES") + "</SignatureType>";
+            output += "<DigestAlgOid>" + digestAlgOid + "</DigestAlgOid>";
+            output += "<MessageDigest>" + (messageDigest != null ? Convert.ToBase64String(messageDigest) : "") + "</MessageDigest>";
+            output += "<SignatureType>" + (isEpes ? "PAdES_EPES" : "PAdES_BES") + "</SignatureType>";
             output += "<SigningCertificate>" + Convert.ToBase64String(signingCert.GetEncoded()) + "</SigningCertificate>";
             output += "<SigningTimeUtc>" + signingTime.ToUniversalTime().ToString("o") + "</SigningTimeUtc>";
 
+            TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
             output += "<TimeStamps>";
             if (timeStampToken != null)
             {
@@ -183,7 +188,7 @@ namespace PadesInfoProcessor
             return output;
         }
 
-        private static bool isEpes(byte[] contents)
+        private static void getAdditionalInfos(byte[] contents, out string digestAlgOid, out byte[] messageDigest, out bool isEpes)
         {
             Org.BouncyCastle.Cms.CmsSignedData signedData = new Org.BouncyCastle.Cms.CmsSignedData(
                 Org.BouncyCastle.Asn1.Cms.ContentInfo.GetInstance((
@@ -196,8 +201,24 @@ namespace PadesInfoProcessor
             signers.MoveNext();
             Org.BouncyCastle.Cms.SignerInformation signerInfo = (Org.BouncyCastle.Cms.SignerInformation)signers.Current;
 
-            return (signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID] != null
-                    && signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID].AttrValues.Count > 0);
+            //digestAlgOif
+            digestAlgOid = signerInfo.DigestAlgOid;
+
+            //messageDigest
+            Org.BouncyCastle.Asn1.Cms.Attribute messageDigestAttr = signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.Pkcs9AtMessageDigest];
+            if (messageDigestAttr != null &&
+                messageDigestAttr.AttrValues.Count > 0)
+            {
+                messageDigest = Org.BouncyCastle.Asn1.DerOctetString.GetInstance(messageDigestAttr.AttrValues[0]).GetOctets();
+            }
+            else
+            {
+                messageDigest = null;
+            }
+
+            //signature policy
+            isEpes = (signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID] != null && 
+                signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID].AttrValues.Count > 0);
         }
 
         //private static string processSignedData(byte[] cadesData)
