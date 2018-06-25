@@ -167,7 +167,7 @@ namespace PadesInfoProcessor
             output += "<MessageDigest>" + (messageDigest != null ? Convert.ToBase64String(messageDigest) : "") + "</MessageDigest>";
             output += "<SignatureType>" + (isEpes ? "PAdES_EPES" : "PAdES_BES") + "</SignatureType>";
             output += "<SigningCertificate>" + Convert.ToBase64String(signingCert.GetEncoded()) + "</SigningCertificate>";
-            output += "<SigningTimeUtc>" + signingTime.ToUniversalTime().ToString("o") + "</SigningTimeUtc>";
+            output += "<SigningTimeUtc>" + (signingTime != DateTime.MinValue ? signingTime.ToUniversalTime().ToString("o") : "") + "</SigningTimeUtc>";
 
             TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
             output += "<TimeStamps>";
