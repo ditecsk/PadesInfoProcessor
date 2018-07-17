@@ -106,7 +106,7 @@ namespace PadesInfoProcessor
                     foreach (string sigName in sigNames)
                     {
                         PdfSignature sig = su.GetSignature(sigName);
-
+                        
                         //string cert = sig.GetCert().GetValue();
                         string coversWholeDoc = su.SignatureCoversWholeDocument(sigName).ToString();
                         string signingTime = getDate(sig.GetDate());
@@ -161,15 +161,17 @@ namespace PadesInfoProcessor
 
             string digestAlgOid; byte[] messageDigest; bool isEpes;
             getAdditionalInfos(contents, out digestAlgOid, out messageDigest, out isEpes);
-            
+            TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
+
+            string signatureFormat = timeStampToken == null ? "PAdES-B-B" : "PAdES-B-T";
+
             output += "<SignerInfo>";
             output += "<DigestAlgOid>" + digestAlgOid + "</DigestAlgOid>";
             output += "<MessageDigest>" + (messageDigest != null ? Convert.ToBase64String(messageDigest) : "") + "</MessageDigest>";
-            output += "<SignatureType>" + (isEpes ? "PAdES_EPES" : "PAdES_BES") + "</SignatureType>";
+            output += "<SignatureType>" + signatureFormat + "</SignatureType>";
             output += "<SigningCertificate>" + Convert.ToBase64String(signingCert.GetEncoded()) + "</SigningCertificate>";
             output += "<SigningTimeUtc>" + (signingTime != DateTime.MinValue ? signingTime.ToUniversalTime().ToString("o") : "") + "</SigningTimeUtc>";
-
-            TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
+            
             output += "<TimeStamps>";
             if (timeStampToken != null)
             {
