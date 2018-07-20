@@ -163,7 +163,7 @@ namespace PadesInfoProcessor
             getAdditionalInfos(contents, out digestAlgOid, out messageDigest, out isEpes);
             TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
 
-            string signatureFormat = timeStampToken == null ? "PAdES-B-B" : "PAdES-B-T";
+            string signatureFormat = timeStampToken == null ? "PadesBPLevelB" : "PadesBPLevelT";
 
             output += "<SignerInfo>";
             output += "<DigestAlgOid>" + digestAlgOid + "</DigestAlgOid>";
