@@ -147,7 +147,15 @@ namespace PadesInfoProcessor
             if (dateValue == null)
                 return "";
 
-            return DateTime.ParseExact(dateValue.GetValue().Substring(2).Replace('\'',':'), "yyyyMMddHHmmsszzz:", System.Globalization.CultureInfo.InvariantCulture).ToUniversalTime().ToString("o");
+            if (dateValue.GetValue().EndsWith("Z"))
+            {
+                DateTime dt = DateTime.ParseExact(dateValue.GetValue().Substring(2).Replace('\'', ':'), "yyyyMMddHHmmssZ", System.Globalization.CultureInfo.InvariantCulture);
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToString("o");
+            }
+            else
+            {
+                return DateTime.ParseExact(dateValue.GetValue().Substring(2).Replace('\'', ':'), "yyyyMMddHHmmsszzz:", System.Globalization.CultureInfo.InvariantCulture).ToUniversalTime().ToString("o");
+            }
         }
 
         private static string processByPdfPKCS7(byte[] contents, string subFilter)
