@@ -1,4 +1,5 @@
-﻿using iText.Signatures;
+﻿using iText.Kernel.Pdf;
+using iText.Signatures;
 using Org.BouncyCastle.Tsp;
 using Org.BouncyCastle.X509;
 using System;
@@ -100,7 +101,7 @@ namespace PadesInfoProcessor
                         pdfReader = new iText.Kernel.Pdf.PdfReader(ms, (new iText.Kernel.Pdf.ReaderProperties()).SetPassword(password));
                     }
 
-                    SignatureUtil su = new SignatureUtil(new iText.Kernel.Pdf.PdfDocument(pdfReader));
+                    SignatureUtil su = new SignatureUtil(new PdfDocument(pdfReader));
                     IList<string> sigNames = su.GetSignatureNames();
                     output += "<PdfSignatures>";
                     foreach (string sigName in sigNames)
@@ -113,7 +114,7 @@ namespace PadesInfoProcessor
                         string contentType = sig.GetSubFilter().ToString().Replace("/", "");
                         string reason = sig.GetReason();
                         string location = sig.GetLocation();
-
+                        
                         output += "<PdfSignature>";
                         output += "<SignatureName>" + sigName + "</SignatureName>";
                         output += "<PdfSigningTimeUtc>" + signingTime + "</PdfSigningTimeUtc>";
@@ -121,7 +122,7 @@ namespace PadesInfoProcessor
                         output += "<Location>" + location + "</Location>";
                         output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
                         output += "<ContentType>" + contentType + "</ContentType>";
-                        output += processByPdfPKCS7(sig.GetContents().GetValueBytes(), contentType);
+                        output += processByPdfPKCS7(new PdfDocument(pdfReader), sig, contentType);
 
                         output += "</PdfSignature>";
                     }
@@ -158,17 +159,22 @@ namespace PadesInfoProcessor
             }
         }
 
-        private static string processByPdfPKCS7(byte[] contents, string subFilter)
+        private static string processByPdfPKCS7(PdfDocument document, PdfSignature signature, string subFilter)
         {
             string output = string.Empty;
 
-            PdfPKCS7 pkcs7 = new PdfPKCS7(contents, new iText.Kernel.Pdf.PdfName(subFilter));
-            //pkcs7.
+            PdfPKCS7 pkcs7 = new PdfPKCS7(signature.GetContents().GetValueBytes(), new iText.Kernel.Pdf.PdfName(subFilter));
             X509Certificate signingCert = pkcs7.GetSigningCertificate();
             DateTime signingTime = pkcs7.GetSignDate();
 
+
             string digestAlgOid; byte[] messageDigest; bool isEpes;
-            getAdditionalInfos(contents, out digestAlgOid, out messageDigest, out isEpes);
+            getAdditionalInfos(signature.GetContents().GetValueBytes(), subFilter, out digestAlgOid, out messageDigest, out isEpes);
+            if(messageDigest == null)
+            {
+                messageDigest = GetByteRangeDigest(document, pkcs7, signature, digestAlgOid);
+            }
+
             TimeStampToken timeStampToken = pkcs7.GetTimeStampToken();
 
             string signatureFormat = timeStampToken == null ? "PadesBPLevelB" : "PadesBPLevelT";
@@ -198,7 +204,7 @@ namespace PadesInfoProcessor
             return output;
         }
 
-        private static void getAdditionalInfos(byte[] contents, out string digestAlgOid, out byte[] messageDigest, out bool isEpes)
+        private static void getAdditionalInfos(byte[] contents, string subFilter, out string digestAlgOid, out byte[] messageDigest, out bool isEpes)
         {
             Org.BouncyCastle.Cms.CmsSignedData signedData = new Org.BouncyCastle.Cms.CmsSignedData(
                 Org.BouncyCastle.Asn1.Cms.ContentInfo.GetInstance((
@@ -211,29 +217,78 @@ namespace PadesInfoProcessor
             signers.MoveNext();
             Org.BouncyCastle.Cms.SignerInformation signerInfo = (Org.BouncyCastle.Cms.SignerInformation)signers.Current;
 
-            //digestAlgOif
+            messageDigest = null;
             digestAlgOid = signerInfo.DigestAlgOid;
-
-            //messageDigest
-            Org.BouncyCastle.Asn1.Cms.Attribute messageDigestAttr = signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.Pkcs9AtMessageDigest];
-            if (messageDigestAttr != null &&
-                messageDigestAttr.AttrValues.Count > 0)
+            isEpes = false;
+            if (subFilter.ToLower() == "adbe.pkcs7.sha1")
             {
-                messageDigest = Org.BouncyCastle.Asn1.DerOctetString.GetInstance(messageDigestAttr.AttrValues[0]).GetOctets();
+                digestAlgOid = "1.3.14.3.2.26";
+                messageDigest = ((Org.BouncyCastle.Asn1.DerOctetString)Org.BouncyCastle.Asn1.Cms.SignedData.GetInstance(signedData.ContentInfo.Content).EncapContentInfo.Content).GetOctets();
             }
             else
             {
-                messageDigest = null;
-            }
+                if (signerInfo.SignedAttributes != null)
+                {
+                    //messageDigest
+                    Org.BouncyCastle.Asn1.Cms.Attribute messageDigestAttr = signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.Pkcs9AtMessageDigest];
+                    if (messageDigestAttr != null &&
+                        messageDigestAttr.AttrValues.Count > 0)
+                    {
+                        messageDigest = Org.BouncyCastle.Asn1.DerOctetString.GetInstance(messageDigestAttr.AttrValues[0]).GetOctets();
+                    }
 
-            //signature policy
-            isEpes = (signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID] != null && 
-                signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID].AttrValues.Count > 0);
+                    //signature policy
+                    isEpes = (signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID] != null &&
+                        signerInfo.SignedAttributes[Org.BouncyCastle.Asn1.Pkcs.PkcsObjectIdentifiers.IdAAEtsSigPolicyID].AttrValues.Count > 0);
+                }
+            }
+        }
+
+        private static byte[] GetByteRangeDigest(PdfDocument document, PdfPKCS7 pkcs7, PdfSignature signature, string digestAlg)
+        {
+            Org.BouncyCastle.Crypto.IDigest digest = Org.BouncyCastle.Security.DigestUtilities.GetDigest(digestAlg);
+            iText.Kernel.Pdf.PdfArray b = signature.GetByteRange();
+            iText.IO.Source.RandomAccessFileOrArray rf = document.GetReader().GetSafeFile();
+            Stream rg = null;
+            try
+            {
+                rg = new iText.IO.Source.RASInputStream(new iText.IO.Source.RandomAccessSourceFactory().CreateRanged(rf.CreateSourceView(), b.ToLongArray(
+                    )));
+                byte[] buf = new byte[8192];
+                int rd;
+                while ((rd = rg.Read(buf, 0, buf.Length)) > 0)
+                {
+                    digest.BlockUpdate(buf, 0, rd);
+                }
+
+                byte[] dig = new byte[digest.GetDigestSize()];
+                digest.DoFinal(dig, 0);
+                return dig;
+            }
+            catch (Exception e)
+            {
+                throw new iText.Kernel.PdfException(e);
+            }
+            finally
+            {
+                try
+                {
+                    if (rg != null)
+                    {
+                        rg.Dispose();
+                    }
+                }
+                catch (System.IO.IOException e)
+                {
+                    // this really shouldn't ever happen - the source view we use is based on a Safe view, which is a no-op anyway
+                    throw new iText.Kernel.PdfException(e);
+                }
+            }
         }
 
         //private static string processSignedData(byte[] cadesData)
         //{
-            
+
 
         //    string output = string.Empty;
         //    Utils.Cades.CAdESParser cades = new Utils.Cades.CAdESParser(cadesData);
@@ -261,13 +316,13 @@ namespace PadesInfoProcessor
         //            {
         //                throw new Exception("Unknown CAdES type found.");
         //            }
-                    
+
         //            //get signing certificate subjects CN
         //            byte[] sigCertData = cades.GetSigningCertificate(n);
 
         //            //X509Certificate signingCert = new X509CertificateParser().ReadCertificate(sigCertData);
         //            //string signingCertInfo = this.getSigningCertInfo(signingCert);
-                    
+
 
         //            //create cades node
         //            int version;

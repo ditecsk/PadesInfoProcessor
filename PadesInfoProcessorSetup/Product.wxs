@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="PAdES Info Processor 1.0" Language="1033" Version="1.0.0.1" Manufacturer="DITEC, a.s." UpgradeCode="43a14dd0-1c0b-44c8-8e75-fa908b19f422">
+  <Product Id="*" Name="PAdES Info Processor 1.0" Language="1033" Version="1.0.0.2" Manufacturer="DITEC, a.s." UpgradeCode="43a14dd0-1c0b-44c8-8e75-fa908b19f422">
     <Package InstallerVersion="405" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
     <Media Id="1" Cabinet="cab1.cab" EmbedCab="yes" />
     
