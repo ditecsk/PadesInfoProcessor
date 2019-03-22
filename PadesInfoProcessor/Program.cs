@@ -101,30 +101,35 @@ namespace PadesInfoProcessor
                         pdfReader = new iText.Kernel.Pdf.PdfReader(ms, (new iText.Kernel.Pdf.ReaderProperties()).SetPassword(password));
                     }
 
-                    SignatureUtil su = new SignatureUtil(new PdfDocument(pdfReader));
-                    IList<string> sigNames = su.GetSignatureNames();
                     output += "<PdfSignatures>";
-                    foreach (string sigName in sigNames)
+                    PdfDocument document = new PdfDocument(pdfReader);
+                    if (iText.Forms.PdfAcroForm.GetAcroForm(document, false) != null)
                     {
-                        PdfSignature sig = su.GetSignature(sigName);
-                        
-                        //string cert = sig.GetCert().GetValue();
-                        string coversWholeDoc = su.SignatureCoversWholeDocument(sigName).ToString();
-                        string signingTime = getDate(sig.GetDate());
-                        string contentType = sig.GetSubFilter().ToString().Replace("/", "");
-                        string reason = sig.GetReason();
-                        string location = sig.GetLocation();
-                        
-                        output += "<PdfSignature>";
-                        output += "<SignatureName>" + sigName + "</SignatureName>";
-                        output += "<PdfSigningTimeUtc>" + signingTime + "</PdfSigningTimeUtc>";
-                        output += "<Reason>" + reason + "</Reason>";
-                        output += "<Location>" + location + "</Location>";
-                        output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
-                        output += "<ContentType>" + contentType + "</ContentType>";
-                        output += processByPdfPKCS7(new PdfDocument(pdfReader), sig, contentType);
+                        SignatureUtil su = new SignatureUtil(document);
+                        IList<string> sigNames = su.GetSignatureNames();
 
-                        output += "</PdfSignature>";
+                        foreach (string sigName in sigNames)
+                        {
+                            PdfSignature sig = su.GetSignature(sigName);
+
+                            //string cert = sig.GetCert().GetValue();
+                            string coversWholeDoc = su.SignatureCoversWholeDocument(sigName).ToString();
+                            string signingTime = getDate(sig.GetDate());
+                            string contentType = sig.GetSubFilter().ToString().Replace("/", "");
+                            string reason = sig.GetReason();
+                            string location = sig.GetLocation();
+
+                            output += "<PdfSignature>";
+                            output += "<SignatureName>" + sigName + "</SignatureName>";
+                            output += "<PdfSigningTimeUtc>" + signingTime + "</PdfSigningTimeUtc>";
+                            output += "<Reason>" + reason + "</Reason>";
+                            output += "<Location>" + location + "</Location>";
+                            output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
+                            output += "<ContentType>" + contentType + "</ContentType>";
+                            output += processByPdfPKCS7(new PdfDocument(pdfReader), sig, contentType);
+
+                            output += "</PdfSignature>";
+                        }
                     }
                     output += "</PdfSignatures>";
                 }
