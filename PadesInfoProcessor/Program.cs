@@ -167,8 +167,14 @@ namespace PadesInfoProcessor
         private static string processByPdfPKCS7(PdfDocument document, PdfSignature signature, string subFilter)
         {
             string output = string.Empty;
+            PdfPKCS7 pkcs7 = null;
+            if (subFilter.ToLower() == "adbe.x509.rsa_sha1")
+            {
+                //pkcs7 = new PdfPKCS7(signature.GetContents().GetValueBytes(), signature.GetCert().GetValueBytes());
+                throw new Exception("Not supported signature format: " + subFilter);
+            }
 
-            PdfPKCS7 pkcs7 = new PdfPKCS7(signature.GetContents().GetValueBytes(), new iText.Kernel.Pdf.PdfName(subFilter));
+            pkcs7 = new PdfPKCS7(signature.GetContents().GetValueBytes(), new iText.Kernel.Pdf.PdfName(subFilter));
             X509Certificate signingCert = pkcs7.GetSigningCertificate();
             DateTime signingTime = pkcs7.GetSignDate();
 
