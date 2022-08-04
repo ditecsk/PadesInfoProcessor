@@ -1,4 +1,5 @@
-﻿using iText.Kernel.Pdf;
+﻿using iText.IO.Source;
+using iText.Kernel.Pdf;
 using iText.Signatures;
 using Org.BouncyCastle.Tsp;
 using Org.BouncyCastle.X509;
@@ -118,6 +119,8 @@ namespace PadesInfoProcessor
                             string contentType = sig.GetSubFilter().ToString().Replace("/", "");
                             string reason = sig.GetReason();
                             string location = sig.GetLocation();
+                            byte[] pdfRevision = su.ExtractRevision(sigName).ToArray();
+                            //byte[] byteRange = GetByteRange(document, sig);
 
                             output += "<PdfSignature>";
                             output += "<SignatureName>" + sigName + "</SignatureName>";
@@ -126,6 +129,8 @@ namespace PadesInfoProcessor
                             output += "<Location>" + location + "</Location>";
                             output += "<CoversWholeDocument>" + coversWholeDoc + "</CoversWholeDocument>";
                             output += "<ContentType>" + contentType + "</ContentType>";
+                            output += "<DocumentRevision>" + Convert.ToBase64String(pdfRevision) + "</DocumentRevision>";
+                            //output += "<ByteRange>" + Convert.ToBase64String(byteRange) + "</ByteRange>";
                             output += processByPdfPKCS7(new PdfDocument(pdfReader), sig, contentType);
 
                             output += "</PdfSignature>";
@@ -297,6 +302,46 @@ namespace PadesInfoProcessor
             }
         }
 
+        private static byte[] GetByteRange(PdfDocument document, PdfSignature signature)
+        {
+            iText.Kernel.Pdf.PdfArray b = signature.GetByteRange();
+            iText.IO.Source.RandomAccessFileOrArray rf = document.GetReader().GetSafeFile();
+            Stream result = new ByteArrayOutputStream();
+            Stream rg = null;
+            try
+            {
+                rg = new iText.IO.Source.RASInputStream(new iText.IO.Source.RandomAccessSourceFactory().CreateRanged(rf.CreateSourceView(), b.ToLongArray(
+                    )));
+                byte[] buf = new byte[8192];
+                int rd;
+                while ((rd = rg.Read(buf, 0, buf.Length)) > 0)
+                {
+                    result.Write(buf, 0, rd);
+                }
+
+                return result.ToArray();
+            }
+            catch (Exception e)
+            {
+                throw new iText.Kernel.PdfException(e);
+            }
+            finally
+            {
+                try
+                {
+                    if (rg != null)
+                    {
+                        rg.Dispose();
+                    }
+                }
+                catch (System.IO.IOException e)
+                {
+                    // this really shouldn't ever happen - the source view we use is based on a Safe view, which is a no-op anyway
+                    throw new iText.Kernel.PdfException(e);
+                }
+            }
+        }
+
         //private static string processSignedData(byte[] cadesData)
         //{
 
@@ -412,6 +457,32 @@ namespace PadesInfoProcessor
             }
 
             return signerCert;
+        }
+
+    }
+
+    static class Extensions
+    {
+        public static byte[] ToArray(this Stream s)
+        {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s));
+            if (!s.CanRead)
+                throw new ArgumentException("Stream cannot be read");
+
+            MemoryStream ms = s as MemoryStream;
+            if (ms != null)
+                return ms.ToArray();
+
+            long pos = s.CanSeek ? s.Position : 0L;
+            if (pos != 0L)
+                s.Seek(0, SeekOrigin.Begin);
+
+            byte[] result = new byte[s.Length];
+            s.Read(result, 0, result.Length);
+            if (s.CanSeek)
+                s.Seek(pos, SeekOrigin.Begin);
+            return result;
         }
     }
 }
